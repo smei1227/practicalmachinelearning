@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Using random forest model to predict human activities from data collected by wearable accelerometers
 
-This is the final project of Coursera Practical Machine Learning course. The purpose of the project is to use a Weight Lifting Exercises Dataset collected with wearable accelerometers to predict the human activities. The WLE dataset includes 5 classes (sitting-down, standing-up, standing, walking, and sitting) collected on 8 hours of activities of 4 healthy subjects. Please see the detail of the dataset at <http://groupware.les.inf.puc-rio.br/har> and `reference`.
+This is the final project of Coursera Practical Machine Learning course. The purpose of the project is to use a Weight Lifting Exercises Dataset collected with wearable accelerometers to predict the human activities. The WLE dataset includes 5 classes (sitting-down, standing-up, standing, walking, and sitting) collected on 8 hours of activities of 4 healthy subjects. Please see the detail of the dataset at <http://groupware.les.inf.puc-rio.br/har> and [reference].
 
 The specific request for this final project is: "The goal of your project is to predict the manner in which they did the exercise. This is the `classe` variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases."
 
