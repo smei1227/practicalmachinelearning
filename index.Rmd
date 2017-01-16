@@ -1,0 +1,133 @@
+---
+title: "Practical Machine Learning Project"
+author: "Mei Sun"
+date: "January 15, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Using random forest model to predict human activities from data collected by wearable accelerometers
+
+This is the final project of Coursera Practical Machine Learning course. The purpose of the project is to use a Weight Lifting Exercises Dataset collected with wearable accelerometers to predict the human activities. The WLE dataset includes 5 classes (sitting-down, standing-up, standing, walking, and sitting) collected on 8 hours of activities of 4 healthy subjects. Please see the detail of the dataset at <http://groupware.les.inf.puc-rio.br/har> and `reference`.
+
+The specific request for this final project is: "The goal of your project is to predict the manner in which they did the exercise. This is the `classe` variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases."
+
+## Read and Explore Data 
+Download data from provided websites.
+```{r}
+trainingUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+download.file(trainingUrl, destfile = "C:\\Users\\Mei\\Desktop\\practialML\\trainingRaw")
+testingUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(testingUrl, destfile = "C:\\Users\\Mei\\Desktop\\practialML\\testingRaw")
+```
+
+Read data.
+```{r}
+setwd("C:\\Users\\Mei\\Desktop\\practialML")
+trainingRaw <- read.csv(".\\trainingRaw", na.strings = c("NA","","#DIV/0!"))
+testingRaw <- read.csv(".\\testingRaw", na.strings = c("NA","","#DIV/0!"))
+dim(trainingRaw)
+dim(testingRaw)
+```
+
+## Clean up dataset
+Clean up training dataset by removing columns with more than 12000 NAs.
+```{r}
+cntgTraining <- which(colSums(is.na(trainingRaw)) > 12000)
+trainingCL1 <- trainingRaw[,-c(cntgTraining)]
+dim(trainingCL1)
+```
+Remove first column 1-7 (username and date columns that are not useful for creating model) from training set.
+```{r}
+trainingCL2 <- trainingCL1[,-c(1:7)]
+dim(trainingCL2)
+```
+Clean up testing dataset to keep the same columns (except the last column) as the training dataset.
+```{r}
+testingCL1 <- testingRaw[,-c(cntgTraining)]
+testingCL2 <- testingCL1[,-c(1:7)]
+dim(testingCL2)
+names(trainingCL2) %in% names(testingCL2)
+```
+Except the last column, now the testing dataset has the same columns as the training set.
+
+##Slice training data into training and validating subset data.
+```{r}
+library(caret)
+set.seed(1227)
+inTrain <- createDataPartition(y=trainingCL2$classe, p=0.6, list=FALSE)
+myTraining <- trainingCL2[inTrain,]
+myTesting <- trainingCL2[-inTrain,]
+dim(myTraining)
+dim(myTesting)
+```
+
+##Covariates validating
+```{r}
+nzv <- nearZeroVar(myTraining, saveMetrics=TRUE)
+nzv
+```
+There is no zero variance. Keep all the covariates for model creation.
+
+##Data modeling
+First try data modeling using prediction tree method.
+```{r}
+set.seed(1111)
+moddt0 <- train(classe ~., method = "rpart", data=myTraining)
+print(moddt0)
+plot(moddt0$finalModel, uniform = TRUE, main = "Decision Tree")
+text(moddt0$finalModel, use.n = TRUE, all = TRUE, cex=0.8)
+dtPred <- predict(moddt0, newdata = myTesting)
+confusionMatrix(myTesting$classe, dtPred)$overall[1]
+```
+The estimated model accuracy is only 56% and the out-of-model accuracy is also around 56%. This model is not accurate enough to predict testing samples. Then add pre-processing step for the model fitting.
+```{r}
+moddt1 <- train(classe ~., method = "rpart", preProcess = c("center", "scale"), 
+                data=myTraining)
+print(moddt1)
+```
+The accuracy is not improved. Preprocessing with normalizing all predictors does not help with modeling.
+
+Use random forest to build model. `parallel` package is used to improve the performance of random forest in "carret::train" function.
+```{r}
+library(parallel)
+library(doParallel)
+set.seed(2222)
+cluster <- makeCluster(detectCores() - 1) # convention to leave 1 core for OS
+registerDoParallel(cluster)
+fitControl <- trainControl(method = "cv",
+                           number = 10,
+                           allowParallel = TRUE)
+modrf <- train(classe ~., method = "rf", data=myTraining, trControl = fitControl)
+stopCluster(cluster)
+registerDoSEQ()
+```
+Evaluate the model on the training dataset. The model accuracy is 100%.
+```{r}
+varImp(modrf)
+modrf$finalModel
+rfTraningPred <- predict(modrf, newdata = myTraining)
+confusionMatrix(rfTraningPred, myTraining$classe)
+```
+Evaluate the model on the validating dataset. 
+```{r}
+rfPred <- predict(modrf, newdata = myTesting)
+confusionMatrix(rfPred, myTesting$classe)
+```
+The prediction accuracy is 99.27%. The out-of-model error rate is less than 1%.
+
+##Use random forest model to predict on the test dataset.
+```{r}
+rfPredTesting <- predict(modrf, newdata = testingCL2)
+rfPredTesting
+```
+
+##Conclusion
+In this data analysis project, random forest method is used to build a machine learning model to predict the manner of human activity. Total 52 variables are used in this prediction model. The most importance variable is `roll_belt`. The prediction accuracy for this random forest model is 99.26%, much higher than the 56% prediction accuracy for prediction tree model. The expected out of sample error is less than 1%. Therefore the random forest model is the better choice over prediction tree model and it fulfills the entire course requirement.
+
+### Reference
+Ugulino, W.; Cardador, D.; Vega, K.; Velloso, E.; Milidiu, R.; Fuks, H. Wearable Computing: Accelerometers' Data Classification of Body Postures and Movements. Proceedings of 21st Brazilian Symposium on Artificial Intelligence. Advances in Artificial Intelligence - SBIA 2012. In: Lecture Notes in Computer Science. , pp. 52-61. Curitiba, PR: Springer Berlin / Heidelberg, 2012. ISBN 978-3-642-34458-9. DOI: 10.1007/978-3-642-34459-6_6. 
+
